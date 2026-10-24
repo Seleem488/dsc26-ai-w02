@@ -1,4 +1,3 @@
-```python
 import pandas as pd
 from sklearn.metrics import roc_auc_score
 
@@ -19,9 +18,7 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
             )
         return mask
 
-    missing_masks = {
-        col: missing_mask(df[col]) for col in df.columns
-    }
+    missing_masks = {col: missing_mask(df[col]) for col in df.columns}
 
     missing = {
         col: float(missing_masks[col].mean()) if len(df) else 0.0
@@ -37,8 +34,7 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
     duplicate_rows = int(df.duplicated(keep="first").sum())
 
     constant_columns = sorted(
-        col
-        for col in df.columns
+        col for col in df.columns
         if col != target
         and df.loc[~missing_masks[col], col].nunique() <= 1
     )
@@ -54,13 +50,11 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
     )
 
     valid_times = timestamps[~timestamps.isna()]
-    if len(valid_times):
-        time_range = [
-            valid_times.min().isoformat(),
-            valid_times.max().isoformat(),
-        ]
-    else:
-        time_range = [None, None]
+    time_range = (
+        [valid_times.min().isoformat(), valid_times.max().isoformat()]
+        if len(valid_times)
+        else [None, None]
+    )
 
     leakage_suspects = []
 
@@ -72,14 +66,13 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
             feature = df.loc[labelled, col]
             feature_missing = missing_masks[col].loc[labelled]
 
-            # Skip constant features, counting missing as a separate value.
             values = feature.astype(object).where(
                 ~feature_missing, "__MISSING__"
             )
             if values.nunique(dropna=False) <= 1:
                 continue
 
-            # Check whether missingness strongly predicts the target.
+            # Test whether the missingness pattern predicts the label.
             indicator = feature_missing.astype(int)
             if indicator.nunique() > 1:
                 try:
@@ -90,14 +83,14 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
                 except ValueError:
                     pass
 
-            # Check numeric and boolean feature values.
+            # Test numeric and boolean values using non-missing rows only.
             if (
                 pd.api.types.is_numeric_dtype(df[col])
                 or pd.api.types.is_bool_dtype(df[col])
             ):
                 usable = ~feature_missing
                 if int(usable.sum()) >= 20:
-                    feature_y = y.loc[usable.index[usable]]
+                    feature_y = y.loc[usable[usable].index]
                     feature_values = feature.loc[usable]
 
                     if feature_y.nunique() == 2:
@@ -120,4 +113,3 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
         "time_range": time_range,
         "leakage_suspects": sorted(set(leakage_suspects)),
     }
-```
