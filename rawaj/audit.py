@@ -1,32 +1,123 @@
-"""Data audit for Rawaj Pay transfer extracts.
-
-You write this file. Keep the signature exactly as it is: the grader calls it by name.
-Allowed dependencies: numpy, pandas, scikit-learn (and the standard library).
-"""
-from __future__ import annotations
-
+```python
 import pandas as pd
+from sklearn.metrics import roc_auc_score
 
 
 def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
-    """Audit a transfer extract before anyone trains a model on it.
+    for col in (target, id_col, time_col):
+        if col not in df.columns:
+            raise KeyError(col)
 
-    Raises KeyError if `target`, `id_col` or `time_col` is not a column of `df`.
+    def missing_mask(series):
+        mask = series.isna()
+        if (
+            pd.api.types.is_object_dtype(series)
+            or pd.api.types.is_string_dtype(series)
+        ):
+            mask = mask | series.map(
+                lambda x: isinstance(x, str) and not x.strip()
+            )
+        return mask
 
-    Returns a dict with exactly these keys:
+    missing_masks = {
+        col: missing_mask(df[col]) for col in df.columns
+    }
 
-    - "n_rows" (int): number of rows.
-    - "missing" ({column: float}): fraction missing, for every column. Missing means
-      NaN/None, or a string that is empty or only whitespace.
-    - "duplicate_ids" (list): sorted non-missing `id_col` values that appear more than once.
-    - "duplicate_rows" (int): rows that exactly repeat an earlier row.
-    - "constant_columns" (list): sorted columns other than `target` with at most one
-      distinct non-missing value.
-    - "unlabelled_rows" (int): rows where `target` is missing.
-    - "positive_rate" (float): share of labelled rows with target == 1; 0.0 if none is labelled.
-    - "bad_timestamps" (int): non-missing values in `time_col` that do not parse as dates.
-    - "time_range" (list): [min, max] of the parsed timestamps as ISO strings, or [None, None].
-    - "leakage_suspects" (list): sorted columns (not target, id_col or time_col) that look
-      like leaks. See README.md for the exact rule.
-    """
-    raise NotImplementedError
+    missing = {
+        col: float(missing_masks[col].mean()) if len(df) else 0.0
+        for col in df.columns
+    }
+
+    ids = df.loc[~missing_masks[id_col], id_col]
+    duplicate_ids = sorted(
+        ids[ids.duplicated(keep=False)].unique().tolist(),
+        key=str,
+    )
+
+    duplicate_rows = int(df.duplicated(keep="first").sum())
+
+    constant_columns = sorted(
+        col
+        for col in df.columns
+        if col != target
+        and df.loc[~missing_masks[col], col].nunique() <= 1
+    )
+
+    unlabelled_rows = int(missing_masks[target].sum())
+    labelled = ~missing_masks[target]
+    y = df.loc[labelled, target]
+    positive_rate = float((y == 1).mean()) if len(y) else 0.0
+
+    timestamps = pd.to_datetime(df[time_col], errors="coerce")
+    bad_timestamps = int(
+        ((~missing_masks[time_col]) & timestamps.isna()).sum()
+    )
+
+    valid_times = timestamps[~timestamps.isna()]
+    if len(valid_times):
+        time_range = [
+            valid_times.min().isoformat(),
+            valid_times.max().isoformat(),
+        ]
+    else:
+        time_range = [None, None]
+
+    leakage_suspects = []
+
+    if len(y) >= 20 and y.nunique() == 2:
+        for col in df.columns:
+            if col in (target, id_col, time_col):
+                continue
+
+            feature = df.loc[labelled, col]
+            feature_missing = missing_masks[col].loc[labelled]
+
+            # Skip constant features, counting missing as a separate value.
+            values = feature.astype(object).where(
+                ~feature_missing, "__MISSING__"
+            )
+            if values.nunique(dropna=False) <= 1:
+                continue
+
+            # Check whether missingness strongly predicts the target.
+            indicator = feature_missing.astype(int)
+            if indicator.nunique() > 1:
+                try:
+                    auc = roc_auc_score(y, indicator)
+                    if auc >= 0.98 or auc <= 0.02:
+                        leakage_suspects.append(col)
+                        continue
+                except ValueError:
+                    pass
+
+            # Check numeric and boolean feature values.
+            if (
+                pd.api.types.is_numeric_dtype(df[col])
+                or pd.api.types.is_bool_dtype(df[col])
+            ):
+                usable = ~feature_missing
+                if int(usable.sum()) >= 20:
+                    feature_y = y.loc[usable.index[usable]]
+                    feature_values = feature.loc[usable]
+
+                    if feature_y.nunique() == 2:
+                        try:
+                            auc = roc_auc_score(feature_y, feature_values)
+                            if auc >= 0.98 or auc <= 0.02:
+                                leakage_suspects.append(col)
+                        except (ValueError, TypeError):
+                            pass
+
+    return {
+        "n_rows": int(len(df)),
+        "missing": missing,
+        "duplicate_ids": duplicate_ids,
+        "duplicate_rows": duplicate_rows,
+        "constant_columns": constant_columns,
+        "unlabelled_rows": unlabelled_rows,
+        "positive_rate": positive_rate,
+        "bad_timestamps": bad_timestamps,
+        "time_range": time_range,
+        "leakage_suspects": sorted(set(leakage_suspects)),
+    }
+```
