@@ -1,16 +1,13 @@
 # AI usage
 
-<!-- Replace every comment below with your own words. Short is fine. The grader checks only
-     that this file exists and has been changed from this template; your Track Mentor reads it. -->
-
 ## Tools I used, and for which functions
 
-<!-- e.g. "Claude for a first draft of audit(); Copilot autocomplete in metrics.py" -->
+I used ChatGPT to help me write and improve `audit()` and the functions in `metrics.py`. It helped me understand the requirements and fix some problems in the code.
 
 ## One place where the AI was wrong, incomplete, or not what the spec said
 
-<!-- What did it produce, and how did you notice: a test, the docs, or your own reasoning? -->
+Some code had extra Markdown formatting that Python could not run. I noticed this when the tests failed on GitHub Actions and fixed the formatting.
 
 ## The function I wrote without AI, and why
 
-<!-- Which one, and what you learned by writing it yourself. -->
+I used AI help for most of the functions, so I cannot say that I wrote a complete function without it. I still reviewed the code and checked the test results to understand how everything works.
