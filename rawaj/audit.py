@@ -88,10 +88,10 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
                 pd.api.types.is_numeric_dtype(df[col])
                 or pd.api.types.is_bool_dtype(df[col])
             ):
-                usable = ~feature_missing
-                if int(usable.sum()) >= 20:
-                    feature_y = y.loc[usable[usable].index]
-                    feature_values = feature.loc[usable]
+              usable = ~feature_missing
+if int(usable.sum()) >= 20:
+    feature_values = feature.loc[usable]
+    feature_y = y.loc[feature_values.index]
 
                     if feature_y.nunique() == 2:
                         try:
