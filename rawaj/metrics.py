@@ -103,4 +103,3 @@ def threshold_for_precision(
             return float(threshold)
 
     return None
-```
