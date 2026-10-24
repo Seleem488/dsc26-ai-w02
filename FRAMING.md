@@ -1,22 +1,15 @@
-# Framing: Rawaj Pay mule detection
-
-<!-- Write a few sentences under each heading about Rawaj Pay's mule detection.
-     Keep the four headings exactly as they are. Text inside these comments does not count.
-     The grader checks only that each heading has some text under it; your Track Mentor reads it. -->
-
 ## Decision
 
-<!-- What decision changes because of the model? Who acts on it, and how many cases a day
-     can they handle? What does each kind of error cost? -->
+Rawaj Pay should flag suspicious transfers for review rather than automatically block them. The threshold should balance fraud detection with the cost of incorrectly flagging legitimate transfers.
 
 ## Metric
 
-<!-- Which metric matches that decision, and at what threshold? Why not accuracy? -->
+Use expected cost as the main decision metric because false positives and false negatives have different business costs. Track precision and recall as supporting metrics to understand the trade-off.
 
 ## Baseline
 
-<!-- What happens today without the model? What must the model beat, on the client's terms? -->
+Start with a simple rule-based baseline using a fixed score threshold. Compare its precision, recall, and expected cost with more advanced approaches before adopting a more complex model.
 
 ## Classical ML or LLM
 
-<!-- Classical model, LLM, a rule, or a mix? Argue from the decision table in the session. -->
+Start with classical machine learning on structured transfer data because it is measurable, reproducible, and suitable for tabular risk scoring. An LLM may help explain flagged cases, but it should not replace the risk model or make unsupported decisions.
