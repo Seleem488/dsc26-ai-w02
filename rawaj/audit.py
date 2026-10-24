@@ -14,11 +14,14 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
             or pd.api.types.is_string_dtype(series)
         ):
             mask = mask | series.map(
-                lambda x: isinstance(x, str) and not x.strip()
+                lambda value: isinstance(value, str) and not value.strip()
             )
         return mask
 
-    missing_masks = {col: missing_mask(df[col]) for col in df.columns}
+    missing_masks = {
+        col: missing_mask(df[col])
+        for col in df.columns
+    }
 
     missing = {
         col: float(missing_masks[col].mean()) if len(df) else 0.0
@@ -34,7 +37,8 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
     duplicate_rows = int(df.duplicated(keep="first").sum())
 
     constant_columns = sorted(
-        col for col in df.columns
+        col
+        for col in df.columns
         if col != target
         and df.loc[~missing_masks[col], col].nunique() <= 1
     )
@@ -49,12 +53,14 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
         ((~missing_masks[time_col]) & timestamps.isna()).sum()
     )
 
-    valid_times = timestamps[~timestamps.isna()]
-    time_range = (
-        [valid_times.min().isoformat(), valid_times.max().isoformat()]
-        if len(valid_times)
-        else [None, None]
-    )
+    valid_times = timestamps.dropna()
+    if len(valid_times):
+        time_range = [
+            valid_times.min().isoformat(),
+            valid_times.max().isoformat(),
+        ]
+    else:
+        time_range = [None, None]
 
     leakage_suspects = []
 
@@ -72,26 +78,28 @@ def audit(df: pd.DataFrame, *, target: str, id_col: str, time_col: str) -> dict:
             if values.nunique(dropna=False) <= 1:
                 continue
 
-            # Test whether the missingness pattern predicts the label.
+            # Check whether missingness itself predicts the target.
             indicator = feature_missing.astype(int)
+
             if indicator.nunique() > 1:
                 try:
                     auc = roc_auc_score(y, indicator)
                     if auc >= 0.98 or auc <= 0.02:
                         leakage_suspects.append(col)
                         continue
-                except ValueError:
+                except (ValueError, TypeError):
                     pass
 
-            # Test numeric and boolean values using non-missing rows only.
+            # Check numeric and boolean feature values.
             if (
                 pd.api.types.is_numeric_dtype(df[col])
                 or pd.api.types.is_bool_dtype(df[col])
             ):
-              usable = ~feature_missing
-if int(usable.sum()) >= 20:
-    feature_values = feature.loc[usable]
-    feature_y = y.loc[feature_values.index]
+                usable = ~feature_missing
+
+                if int(usable.sum()) >= 20:
+                    feature_values = feature.loc[usable]
+                    feature_y = y.loc[feature_values.index]
 
                     if feature_y.nunique() == 2:
                         try:
