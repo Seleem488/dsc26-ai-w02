@@ -10,4 +10,4 @@ Some code had extra Markdown formatting that caused Python errors. I noticed thi
 
 ## The function I wrote without AI, and why
 
-I used AI help with the implementation, so I did not write a complete function entirely on my own. I reviewed the code and test results to better understand how the functions work.
+I used AI assistance to implement the functions, so I cannot claim that I wrote one entirely without AI. I ran the audit on the sample dataset, checked the output, and used GitHub Actions to verify the changes. This helped me understand how the implementation matches the requirements.
